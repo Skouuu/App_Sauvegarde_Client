@@ -1,15 +1,9 @@
 package org.example.ui;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
-import java.security.spec.InvalidKeySpecException;
 
-import javax.net.ssl.SSLSocket;
 import javax.swing.JButton;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -19,8 +13,6 @@ import javax.swing.SwingUtilities;
 
 
 import org.example.App;
-import org.example.Client;
-import org.example.HashingPassword;
 
 public class LoginFrame {
 
@@ -61,12 +53,22 @@ public class LoginFrame {
         App.frame.add(submitPanel);
 
         submitButton.addActionListener(e -> {
+            String username = usernameField.getText().trim();
+            String password = new String(passwordField.getPassword());
+            App.client.setUsername(username);
             try {
-                String username = usernameField.getText().trim();
-                App.client.getDataOutputStream().writeUTF(username); // Envoi du nom d'utilisateur
-                String storedPasswordHash = App.client.getDataInputStream().readUTF();
-                boolean isAuthenticated = HashingPassword.validatePassword(
-                        new String(passwordField.getPassword()), storedPasswordHash);
+                App.client.getDataOutputStream().writeUTF(username);
+                App.client.getDataOutputStream().writeUTF(password);
+                String validationConnexion;
+                validationConnexion = App.client.getDataInputStream().readUTF();
+                boolean isAuthenticated;
+                System.out.println(validationConnexion);
+                if (validationConnexion.equals("Connecté")){
+                    isAuthenticated = true;
+                }
+                else {
+                    isAuthenticated = false;
+                }
                 if (isAuthenticated) {
                     File paramFile = new File("parametres.txt");
                     if (!paramFile.exists()) {
@@ -79,10 +81,8 @@ public class LoginFrame {
                     JOptionPane.showMessageDialog(App.frame, "Vous n'avez pas entrée des identifiants valide", "Error",
                             JOptionPane.ERROR_MESSAGE);
                 }
-            } catch (IOException | NoSuchAlgorithmException ex) {
-                ex.printStackTrace();
-            } catch (InvalidKeySpecException e1) {
-                e1.printStackTrace();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
             }
         });
         App.frame.revalidate();

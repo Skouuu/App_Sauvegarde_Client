@@ -60,7 +60,7 @@ public class BackupFrame extends JFrame {
                 if (isBackup) {
                     App.client.doBackup(folderPath);
                 } else {
-                    App.client.doRestore();
+                    App.client.doRestore(folderPath);
                 }
                 // Remplacez Socket par SSLSocket et SocketFactory par SSLSocketFactory
 

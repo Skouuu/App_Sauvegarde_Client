@@ -1,7 +1,6 @@
 package org.example;
 
 import java.io.*;
-import java.net.Socket;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
@@ -11,12 +10,9 @@ import java.util.Base64;
 import java.util.HashSet;
 import java.util.Set;
 import javax.net.ssl.SSLSocketFactory;
-import javax.swing.*;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.SSLSocket;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.time.Instant;
 
 public class Client {
@@ -130,23 +126,6 @@ public class Client {
         return null;
     }
 
-
-    public boolean isAuthenticated(String $password) {
-        try {
-            dataOutputStream.writeUTF(username);// Envoi du nom d'utilisateur
-            String storedPasswordHash = dataInputStream.readUTF();
-            boolean isAuthenticated = HashingPassword.validatePassword($password, storedPasswordHash);
-            return isAuthenticated;
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (InvalidKeySpecException e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
     public void doBackup(String path) {
         // Envoi du nom du client et du chemin du dossier de sauvegarde
         try {
@@ -163,12 +142,12 @@ public class Client {
         }
     }
 
-    public void doRestore() {
+    public void doRestore(String path) {
         // Envoi du nom du client et de la demande de restauration
         try {
             dataOutputStream.writeUTF("RESTORE");
-            dataOutputStream.writeUTF(this.path);
-            receiveFiles(this.path, secretKey);
+            dataOutputStream.writeUTF(path);
+            receiveFiles(path);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -181,7 +160,7 @@ public class Client {
 
         while ((filePath = br.readLine()) != null) {
             System.out.println(filePath);
-            sendFile(filePath, directoryPath, secretKey);
+            sendFile(filePath, directoryPath);
         }
 
         dataOutputStream.writeUTF("END");
@@ -189,25 +168,30 @@ public class Client {
         br.close();
     }
 
-    public static void sendFile(String filePath, String directoryPath, SecretKey key) throws Exception {
+    public static void sendFile(String filePath, String directoryPath) throws Exception {
         File file = new File(filePath);
+        if (!file.exists() || !file.canRead()) {
+            System.err.println("Le fichier n'existe pas ou ne peut pas être lu: " + filePath);
+            return;
+        }
+
         Path basePath = Paths.get(directoryPath);
-        String relativePath = basePath.relativize(file.toPath()).toString(); // Chemin relatif
+        String relativePath = basePath.relativize(file.toPath()).toString();
+        System.out.println("Envoi du fichier: " + file.getAbsolutePath() + " avec chemin relatif: " + relativePath);
 
-        dataOutputStream.writeUTF(relativePath);
-        dataOutputStream.writeLong(file.length());
 
+        dataOutputStream.writeUTF(relativePath); // Envoi du chemin relatif
+        dataOutputStream.writeLong(file.length()); // Envoi de la taille du fichier
+
+        // Envoi du contenu du fichier
         FileInputStream fileInputStream = new FileInputStream(file);
-        byte[] buffer = new byte[4 * 1024];
+        byte[] buffer = new byte[4 * 1024]; // Taille du tampon
         int bytes;
         while ((bytes = fileInputStream.read(buffer)) != -1) {
-            byte[] encryptedData = EncryptionSystem.encryptData(Arrays.copyOf(buffer, bytes),
-                    loadSecretKey("AES", "secret_key.txt"));
-            dataOutputStream.writeInt(encryptedData.length);
-            dataOutputStream.write(encryptedData);
+            dataOutputStream.write(buffer, 0, bytes);
             dataOutputStream.flush();
         }
-        fileInputStream.close();
+        fileInputStream.close(); // Fermeture du flux d'entrée de fichier
     }
 
     public static void savePaths(Path repertoire, Instant lastBackupTime) {
@@ -228,30 +212,24 @@ public class Client {
         }
     }
 
-    public static void receiveFiles(String restorePath, SecretKey key) throws IOException {
+    public static void receiveFiles(String restorePath) throws IOException {
         DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
         String fileName;
         while (!(fileName = dataInputStream.readUTF()).equals("END")) {
-            int expectedDataLength = dataInputStream.readInt(); // Longueur attendue des données chiffrées
-            byte[] encryptedData = new byte[expectedDataLength]; // Créez un tableau de bytes de la taille attendue
+            long fileSize = dataInputStream.readLong();
+            Path filePath = Paths.get(restorePath, fileName);
+            filePath.getParent().toFile().mkdirs();
 
-            int actualDataLength = dataInputStream.read(encryptedData); // Lire les données chiffrées
-
-            // Vérifiez si la longueur des données lues correspond à la longueur attendue
-            if (actualDataLength != expectedDataLength) {
-                throw new IOException("Incomplete data read. Expected " + expectedDataLength
-                        + " bytes, but got " + actualDataLength + " bytes.");
+            try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
+                byte[] buffer = new byte[4 * 1024];
+                int bytes;
+                while (fileSize > 0 && (bytes = dataInputStream.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytes);
+                    fileSize -= bytes;
+                }
             }
-            byte[] decryptedData;
-            try {
-                decryptedData = EncryptionSystem.decryptData(encryptedData, loadSecretKey("AES", "secret_key.txt"));
-                Path filePath = Paths.get(restorePath, fileName);
-                Files.createDirectories(filePath.getParent());
-                Files.write(filePath, decryptedData);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            System.out.println("Received file: " + fileName);
         }
     }
 
@@ -278,21 +256,6 @@ public class Client {
         // Convertir la chaîne encodée en clé secrète
         byte[] decodedKey = Base64.getDecoder().decode(encodedKey);
         return new SecretKeySpec(decodedKey, 0, decodedKey.length, algorithm);
-    }
-
-    public SecretKey loadSecretKeyIfExists(String algorithm, String filePath) throws Exception {
-        Path path = Paths.get(filePath);
-
-        // Vérifier si le fichier de la clé existe
-        if (Files.exists(path)) {
-            // Charger la clé existante
-            return loadSecretKey(algorithm, filePath);
-        } else {
-            // Générer une nouvelle clé et la stocker
-            SecretKey newKey = EncryptionSystem.generateSecretKey();
-            storeSecretKeyIfNotExists(newKey, filePath);
-            return newKey;
-        }
     }
 
     // Fonction pour filtrer les fichiers en fonction des suffixes définis dans le

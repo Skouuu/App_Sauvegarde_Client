@@ -51,11 +51,6 @@ public class App {
     public static void main(String[] args) {
         frame = new JFrame("Backup Application");
         client = new Client();
-        try {
-            client.loadSecretKeyIfExists("AES", "secret_key.txt");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
         SwingUtilities.invokeLater(App::new);
 
     }
