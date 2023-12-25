@@ -11,7 +11,6 @@ import javax.swing.SwingUtilities;
 
 
 import org.example.App;
-import org.example.Client;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -78,8 +77,6 @@ public class ConfigFrame extends JFrame {
         frame.add(addSuffixPanel);
         frame.add(addSuffixText);
         frame.add(continueButton);
-        // Ajout du bouton à la fenêtre
-        //getContentPane().add(continueButton, BorderLayout.CENTER);
 
         App.frame.revalidate();
         App.frame.repaint();

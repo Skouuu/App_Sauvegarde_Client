@@ -22,7 +22,6 @@ public class App {
                 @Override
                 public void windowClosing(WindowEvent e) {
                     super.windowClosing(e);
-                    // Fermez la socket ici
                     try {
                         if (client.getSocket() != null && !client.getSocket().isClosed()) {
                             client.getSocket().close();

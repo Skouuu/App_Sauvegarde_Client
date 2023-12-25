@@ -37,28 +37,8 @@ public class Client {
         return socket;
     }
 
-    public String getUsername() {
-        return username;
-    }
-
     public void setUsername(String username) {
         this.username = username;
-    }
-
-    public String getPath() {
-        return path;
-    }
-
-    public void setPath(String path) {
-        this.path = path;
-    }
-
-    public void setDataOutputStream(DataOutputStream d) {
-        dataOutputStream = d;
-    }
-
-    public void setDataInputStream(DataInputStream d) {
-        dataInputStream = d;
     }
 
     public DataOutputStream getDataOutputStream() {
@@ -69,47 +49,11 @@ public class Client {
         return dataInputStream;
     }
 
-//    public static void main(String[] args)
-//            throws NoSuchAlgorithmException, InvalidKeySpecException {
-//        System.setProperty("javax.net.ssl.trustStore", "clienttruststore.jks");
-//        System.setProperty("javax.net.ssl.trustStorePassword", "app_sauvegarde");
-//        // Création de la fenêtre
-//        JFrame frame = new JFrame("Backup Application");
-//        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//        frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
-//        SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
-//
-//        try {
-//            secretKey = loadSecretKeyIfExists("AES", "secret_key.txt");
-//            SSLSocket SSLsocket = (SSLSocket) factory.createSocket("127.0.0.1", 6666);
-//            socket = SSLsocket;
-//            dataOutputStream = new DataOutputStream(socket.getOutputStream());
-//            dataInputStream = new DataInputStream(socket.getInputStream());
-//            showLoginInterface(frame);
-//        } catch (Exception exception) {
-//            exception.printStackTrace();
-//        }
-//
-//        frame.addWindowListener(new WindowAdapter() {
-//            @Override
-//            public void windowClosing(WindowEvent e) {
-//                super.windowClosing(e);
-//                // Fermez la socket ici
-//                try {
-//                    if (socket != null && !socket.isClosed()) {
-//                        socket.close();
-//                    }
-//                } catch (IOException ex) {
-//                    ex.printStackTrace();
-//                }
-//            }
-//        });
-//
-//        // Réglages finaux de la fenêtre
-//        frame.pack();
-//        frame.setVisible(true);
-//    }
-
+    /**
+     * Initie la SSL socket
+     *
+     * @return
+     */
     public SSLSocket initSSLSocket() {
         System.setProperty("javax.net.ssl.trustStore", "clienttruststore.jks");
         System.setProperty("javax.net.ssl.trustStorePassword", "app_sauvegarde");
@@ -119,31 +63,38 @@ public class Client {
             dataOutputStream = new DataOutputStream(socket.getOutputStream());
             dataInputStream = new DataInputStream(socket.getInputStream());
             return socket;
-            // Reste du code...
         } catch (Exception exception) {
             exception.printStackTrace();
         }
         return null;
     }
 
+    /**
+     * Effectue toute les actions nécessaires à la sauvegarde
+     *
+     * @param path
+     */
     public void doBackup(String path) {
-        // Envoi du nom du client et du chemin du dossier de sauvegarde
         try {
             dataOutputStream.writeUTF("SAVE");
             dataOutputStream.writeUTF(path);
             System.out.println("Sending files to the Server");
 
             Instant lastBackupTime = readLastBackupTime();
-            savePaths(Paths.get(path), lastBackupTime); // Modifier les chemins sauvegardés
-            sendFilesListedInFile("paths.txt", path); // chemin vers votre fichier .txt
-            deleteFile("paths.txt"); // Supprimer le fichier après la sauvegarde
+            savePaths(Paths.get(path), lastBackupTime);
+            sendFilesListedInFile("paths.txt", path);
+            deleteFile("paths.txt");
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    /**
+     * Effectue toute les actions nécessaires à la restauration
+     *
+     * @param path
+     */
     public void doRestore(String path) {
-        // Envoi du nom du client et de la demande de restauration
         try {
             dataOutputStream.writeUTF("RESTORE");
             dataOutputStream.writeUTF(path);
@@ -154,6 +105,13 @@ public class Client {
 
     }
 
+    /**
+     * Permet d'envoyer dont les chemins absolue sont écrit ligne par ligne dans un fichiers listFilePath
+     *
+     * @param listFilePath
+     * @param directoryPath
+     * @throws Exception
+     */
     public static void sendFilesListedInFile(String listFilePath, String directoryPath) throws Exception {
         BufferedReader br = new BufferedReader(new FileReader(listFilePath));
         String filePath;
@@ -168,6 +126,13 @@ public class Client {
         br.close();
     }
 
+    /**
+     * Envoie les bytes d'un fichier à travers des SSL socket
+     *
+     * @param filePath
+     * @param directoryPath
+     * @throws Exception
+     */
     public static void sendFile(String filePath, String directoryPath) throws Exception {
         File file = new File(filePath);
         if (!file.exists() || !file.canRead()) {
@@ -194,6 +159,12 @@ public class Client {
         fileInputStream.close(); // Fermeture du flux d'entrée de fichier
     }
 
+    /**
+     * Sauvegarde les chemins des fichiers qui ont été modifé depuis le lastBackupTime
+     *
+     * @param repertoire
+     * @param lastBackupTime
+     */
     public static void savePaths(Path repertoire, Instant lastBackupTime) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("paths.txt"))) {
             Files.walkFileTree(repertoire, new SimpleFileVisitor<Path>() {
@@ -212,6 +183,9 @@ public class Client {
         }
     }
 
+    /**
+     * Gère la réception est l'enregistrement des fichiers reçu lors d'un restauration
+     */
     public static void receiveFiles(String restorePath) throws IOException {
         DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 
@@ -233,33 +207,12 @@ public class Client {
         }
     }
 
-    public static void storeSecretKeyIfNotExists(SecretKey secretKey, String filePath) throws Exception {
-        Path path = Paths.get(filePath);
-
-        // Vérifier si le fichier existe déjà
-        if (!Files.exists(path)) {
-            // Convertir la clé secrète en chaîne de caractères en utilisant Base64
-            String encodedKey = Base64.getEncoder().encodeToString(secretKey.getEncoded());
-
-            // Stocker la clé encodée dans un fichier
-            Files.write(path, encodedKey.getBytes());
-            System.out.println("Key stored successfully.");
-        } else {
-            System.out.println("Key file already exists.");
-        }
-    }
-
-    public static SecretKey loadSecretKey(String algorithm, String filePath) throws Exception {
-        // Lire la chaîne encodée depuis le fichier
-        byte[] encodedKey = Files.readAllBytes(Paths.get(filePath));
-
-        // Convertir la chaîne encodée en clé secrète
-        byte[] decodedKey = Base64.getDecoder().decode(encodedKey);
-        return new SecretKeySpec(decodedKey, 0, decodedKey.length, algorithm);
-    }
-
-    // Fonction pour filtrer les fichiers en fonction des suffixes définis dans le
-    // fichier de paramètres
+    /**
+     * Filtre les fichiers en fonction des suffixes définis dans le fichier de paramètres
+     *
+     * @param file
+     * @return boolean
+     */
     public static boolean filterFileBySuffix(Path file) {
         try (BufferedReader reader = new BufferedReader(new FileReader("parametres.txt"))) {
             // Lire les suffixes à partir du fichier de paramètres
@@ -267,7 +220,6 @@ public class Client {
             String suffix;
             while ((suffix = reader.readLine()) != null) {
                 suffixes.add(suffix.trim().toLowerCase()); // Stocker les suffixes en minuscules pour la correspondance
-                // insensible à la casse
             }
 
             // Vérifier si le fichier a l'un des suffixes spécifiés
@@ -284,6 +236,11 @@ public class Client {
         return false;
     }
 
+    /**
+     * Ajoute les suffixes à sauvegarder dans un fichier
+     *
+     * @param suffixes
+     */
     public void addSuffixesToFile(Set<String> suffixes) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("parametres.txt", true))) {
             for (String suffix : suffixes) {
@@ -296,15 +253,11 @@ public class Client {
         }
     }
 
-    public void removeSuffixesFile() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("parametres.txt", false))) {
-            // Effacez le contenu du fichier en écrivant une chaîne vide
-            writer.write("");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
+    /**
+     * Permet de gérer la récupération de la dernière date d'update envoyé par le serveur
+     *
+     * @return
+     */
     public static Instant readLastBackupTime() {
         try {
             String lastBackupString = dataInputStream.readUTF();
@@ -315,6 +268,11 @@ public class Client {
         return Instant.MIN; // Retourner une date antérieure en cas d'erreur
     }
 
+    /**
+     * Permet de supprimer un fichier en fonction de son chemin absolue
+     *
+     * @param filePath
+     */
     public static void deleteFile(String filePath) {
         try {
             Files.deleteIfExists(Paths.get(filePath));
@@ -324,179 +282,4 @@ public class Client {
             System.err.println("Failed to delete " + filePath);
         }
     }
-
-//    private static void showLoginInterface(JFrame frame) {
-//        // Clear previous content
-//        frame.getContentPane().removeAll();
-//        frame.repaint();
-//
-//        // Panel pour le champ de nom
-//        JPanel usernamePanel = new JPanel();
-//        JTextField usernameField = new JTextField(20);
-//        JLabel usernameLabel = new JLabel("Enter Your Username: ");
-//        usernamePanel.add(usernameLabel);
-//        usernamePanel.add(usernameField);
-//
-//        // Panel pour le champ mot de passe
-//        JPanel passwordPanel = new JPanel();
-//        JPasswordField passwordField = new JPasswordField(20);
-//        JLabel passwordLabel = new JLabel("Enter Your Password: ");
-//        passwordPanel.add(passwordLabel);
-//        passwordPanel.add(passwordField);
-//
-//        // Panel pour le bouton Submit
-//        JPanel submitPanel = new JPanel();
-//        JButton submitButton = new JButton("Submit");
-//        submitPanel.add(submitButton);
-//
-//        // Ajout des panels à la fenêtre
-//        frame.add(usernamePanel);
-//        frame.add(passwordPanel);
-//        frame.add(submitPanel);
-//
-//        submitButton.addActionListener(e -> {
-//            try {
-//                String username = usernameField.getText().trim();
-//                dataOutputStream.writeUTF(username); // Envoi du nom d'utilisateur
-//                String storedPasswordHash = dataInputStream.readUTF();
-//                boolean isAuthenticated = HashingPassword.validatePassword(
-//                        new String(passwordField.getPassword()), storedPasswordHash);
-//                if (isAuthenticated) {
-//                    showBackupRestoreInterface(frame, username); // Afficher l'interface de sauvegarde/restauration
-//                } else {
-//                    JOptionPane.showMessageDialog(frame, "Vous n'avez pas entrée des identifiants valide", "Error",
-//                            JOptionPane.ERROR_MESSAGE);
-//                }
-//            } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException ex) {
-//                ex.printStackTrace();
-//            }
-//        });
-//        frame.revalidate();
-//        frame.repaint();
-//    }
-//
-//    private static void showBackupRestoreInterface(JFrame frame, String username) {
-//        // Clear previous content
-//        frame.getContentPane().removeAll();
-//        frame.repaint();
-//
-//        // Panel pour les boutons radio
-//        JPanel radioPanel = new JPanel();
-//        JRadioButton backupButton = new JRadioButton("Sauvegarde", true);
-//        JRadioButton restoreButton = new JRadioButton("Restauration");
-//        ButtonGroup operationGroup = new ButtonGroup();
-//        operationGroup.add(backupButton);
-//        operationGroup.add(restoreButton);
-//        radioPanel.add(backupButton);
-//        radioPanel.add(restoreButton);
-//
-//        // Panel pour les cases à cocher des suffixes
-//        JPanel suffixPanel = new JPanel();
-//        JLabel suffixLabel = new JLabel("Select File Suffixes to Save:");
-//        suffixPanel.add(suffixLabel);
-//
-//        // Ajoutez autant de cases à cocher que nécessaire en fonction de vos besoins
-//        JCheckBox txtCheckBox = new JCheckBox("txt");
-//        JCheckBox jpgCheckBox = new JCheckBox("jpg");
-//        JCheckBox pdfCheckBox = new JCheckBox("pdf");
-//
-//        // Ajoutez les cases à cocher au panneau
-//        suffixPanel.add(txtCheckBox);
-//        suffixPanel.add(jpgCheckBox);
-//        suffixPanel.add(pdfCheckBox);
-//
-//        /// Panel pour le bouton de sélection de dossier
-//        JPanel folderButtonPanel = new JPanel();
-//        JButton folderButton = new JButton("Select Folder");
-//        folderButtonPanel.add(folderButton);
-//
-//        // Panel pour afficher le chemin du dossier sélectionné
-//        JPanel folderLabelPanel = new JPanel();
-//        JLabel folderLabel = new JLabel("No folder selected");
-//        folderLabelPanel.add(folderLabel);
-//
-//        // Panel pour le bouton Submit
-//        JPanel submitPanel = new JPanel();
-//        JButton submitButton = new JButton("Submit");
-//        submitPanel.add(submitButton);
-//
-//        // Sélecteur de dossier
-//        folderButton.addActionListener(e -> {
-//            JFileChooser fileChooser = new JFileChooser();
-//            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-//            int option = fileChooser.showOpenDialog(frame);
-//            if (option == JFileChooser.APPROVE_OPTION) {
-//                File selectedFolder = fileChooser.getSelectedFile();
-//                folderLabel.setText(selectedFolder.getAbsolutePath());
-//            }
-//        });
-//
-//        // Ajouter les composants pour la sauvegarde et la restauration...
-//        // radioPanel, suffixPanel, folderButtonPanel, etc.
-//
-//        // Action du bouton Submit pour la sauvegarde/restauration
-//        submitButton.addActionListener(e -> {
-//            try {
-//                String folderPath = folderLabel.getText();
-//
-//                // Vérifiez si le nom est rempli et qu'un dossier a été sélectionné
-//                if (!folderPath.equals("No folder selected")) {
-//                    // Traitement des données
-//                    boolean isBackup = backupButton.isSelected();
-//
-//                    // Récupérez les suffixes à partir des cases à cocher
-//                    Set<String> suffixes = new HashSet<>();
-//                    if (txtCheckBox.isSelected())
-//                        suffixes.add("txt");
-//                    if (jpgCheckBox.isSelected())
-//                        suffixes.add("jpg");
-//                    if (pdfCheckBox.isSelected())
-//                        suffixes.add("pdf");
-//                    addSuffixesToFile(suffixes);
-//
-//                    if (isBackup) {
-//                        dataOutputStream.writeUTF("SAVE");
-//                        dataOutputStream.writeUTF(folderPath);
-//                        Instant lastBackupTime = readLastBackupTime();
-//                        System.out.println("Sending files to the Server");
-//
-//                        savePaths(Paths.get(folderPath), lastBackupTime); // Modifier le chemins sauvegardés
-//                        sendFilesListedInFile("paths.txt", folderPath); // chemin vers votre fichier .txt
-//                        deleteFile("paths.txt"); // Supprimer le fichier après la sauvegarde
-//                    } else {
-//                        // Envoi du nom du client et de la demande de restauration
-//                        dataOutputStream.writeUTF("RESTORE");
-//                        dataOutputStream.writeUTF(folderPath);
-//                        receiveFiles(folderPath, secretKey);
-//                    }
-//
-//                    dataOutputStream.close();
-//                    dataInputStream.close();
-//                    // Fermeture de la fenêtre
-//                    frame.dispose();
-//                    // Quand la fenêtre se ferme, on supprime tout dans le fichier avec des suffixes
-//                    removeSuffixesFile();
-//                } else {
-//                    // Affichage d'un message d'erreur
-//                    JOptionPane.showMessageDialog(frame, "Veuillez remplir tous les champs.", "Erreur",
-//                            JOptionPane.ERROR_MESSAGE);
-//                }
-//            } catch (IOException ex) {
-//                ex.printStackTrace();
-//                JOptionPane.showMessageDialog(frame, "Error in file transmission.", "Error", JOptionPane.ERROR_MESSAGE);
-//            } catch (Exception e1) {
-//                e1.printStackTrace();
-//                JOptionPane.showMessageDialog(frame, "Error in file transmission.", "Error", JOptionPane.ERROR_MESSAGE);
-//            }
-//        });
-//
-//        frame.add(radioPanel);
-//        frame.add(suffixPanel);
-//        frame.add(folderButtonPanel);
-//        frame.add(folderLabelPanel);
-//        frame.add(submitPanel);
-//
-//        frame.revalidate();
-//        frame.repaint();
-//    }
 }
