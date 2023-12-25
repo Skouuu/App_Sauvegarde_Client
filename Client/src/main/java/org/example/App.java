@@ -1,15 +1,10 @@
 package org.example;
 
+import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
 import java.io.IOException;
 import javax.swing.*;
-
-import org.example.ui.BackupFrame;
-import org.example.ui.ConfigFrame;
 import org.example.ui.LoginFrame;
 
 import javax.net.ssl.SSLSocket;
@@ -17,13 +12,9 @@ import javax.net.ssl.SSLSocket;
 public class App {
 
     public static Client client;
-    public static SSLSocket socket;
     public static JFrame frame;
 
     public App() {
-        // Création de la fenêtre
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setLayout(new BoxLayout(App.frame.getContentPane(), BoxLayout.Y_AXIS));
         try {
             SwingUtilities.invokeLater(LoginFrame::new);
 
@@ -50,6 +41,12 @@ public class App {
 
     public static void main(String[] args) {
         frame = new JFrame("Backup Application");
+        // Création de la fenêtre
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new BoxLayout(App.frame.getContentPane(), BoxLayout.Y_AXIS));
+        frame.setPreferredSize(new Dimension(400, 300));
+        frame.pack();
+        frame.setVisible(true);
         client = new Client();
         SwingUtilities.invokeLater(App::new);
 

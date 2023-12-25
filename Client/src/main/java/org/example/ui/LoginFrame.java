@@ -21,9 +21,6 @@ public class LoginFrame {
     }
 
     public void createWindows() {
-        // Réglages finaux de la fenêtre
-        App.frame.pack();
-        App.frame.setVisible(true);
         // Clear previous content
         App.frame.getContentPane().removeAll();
         App.frame.repaint();

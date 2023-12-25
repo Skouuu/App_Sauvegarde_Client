@@ -65,8 +65,7 @@ public class BackupFrame extends JFrame {
                 // Remplacez Socket par SSLSocket et SocketFactory par SSLSocketFactory
 
                 // Fermeture de la fenêtre
-                //frame.dispose();
-                // Quand la fenêtre se ferme, on supprime tout dans le fichier avec des suffixes
+                App.frame.dispose();
             } else {
                 // Affichage d'un message d'erreur
                 JOptionPane.showMessageDialog(App.frame, "Veuillez remplir tous les champs.", "Erreur",
